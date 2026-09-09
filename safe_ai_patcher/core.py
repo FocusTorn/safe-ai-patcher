@@ -77,7 +77,7 @@ def _snapshot(root: Path, changes: list[Change]) -> list[Snapshot]:
     return snapshots
 
 
-def _atomic_write(path: Path, content: str, mode: int | None = None) -> None:
+def _atomic_write(path: Path, content: str | bytes, mode: int | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     fd, temp_name = tempfile.mkstemp(
@@ -87,10 +87,16 @@ def _atomic_write(path: Path, content: str, mode: int | None = None) -> None:
     )
 
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
+        if isinstance(content, str):
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+        else:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
 
         if mode is not None:
             os.chmod(temp_name, mode)
@@ -99,7 +105,7 @@ def _atomic_write(path: Path, content: str, mode: int | None = None) -> None:
     except Exception:
         try:
             os.unlink(temp_name)
-        except FileNotFoundError:
+        except OSError:
             pass
         raise
 
@@ -108,31 +114,7 @@ def _rollback(snapshots: list[Snapshot]) -> None:
     for snapshot in snapshots:
         if snapshot.existed:
             assert snapshot.content is not None
-
-            snapshot.path.parent.mkdir(parents=True, exist_ok=True)
-
-            fd, temp_name = tempfile.mkstemp(
-                prefix=f".{snapshot.path.name}.",
-                suffix=".sap-rollback",
-                dir=snapshot.path.parent,
-            )
-
-            try:
-                with os.fdopen(fd, "wb") as handle:
-                    handle.write(snapshot.content)
-                    handle.flush()
-                    os.fsync(handle.fileno())
-
-                if snapshot.mode is not None:
-                    os.chmod(temp_name, snapshot.mode)
-
-                os.replace(temp_name, snapshot.path)
-            except Exception:
-                try:
-                    os.unlink(temp_name)
-                except FileNotFoundError:
-                    pass
-                raise
+            _atomic_write(snapshot.path, snapshot.content, snapshot.mode)
         elif snapshot.path.exists():
             snapshot.path.unlink()
 

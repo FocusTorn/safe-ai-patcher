@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
-from .core import Change, PatchError, _safe_path, _snapshot
+from .core import Change, PatchError, _atomic_write, _safe_path, _snapshot
 
 
 def _hash_bytes(data: bytes) -> str:
@@ -127,10 +127,7 @@ def restore_snapshot(
                 raise PatchError(f"Missing snapshot payload for {entry['path']}")
 
             data = payload_path.read_bytes()
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
-            if "mode" in entry:
-                target.chmod(entry["mode"])
+            _atomic_write(target, data, entry.get("mode"))
         elif target.exists():
             if target.is_dir():
                 raise PatchError(f"Cannot remove directory: {entry['path']}")

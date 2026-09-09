@@ -192,3 +192,31 @@ class TransactionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class AtomicWriteTests(unittest.TestCase):
+    def test_atomic_write_cleans_up_on_failure(self):
+        from safe_ai_patcher.core import _atomic_write
+        from unittest.mock import patch
+        import os
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "test.txt"
+
+            with patch("os.replace", side_effect=OSError("Permission denied")):
+                with self.assertRaises(OSError):
+                    _atomic_write(target, "content")
+
+            # The temp file should have been cleaned up.
+            self.assertEqual(list(root.iterdir()), [])
+
+    def test_atomic_write_handles_bytes(self):
+        from safe_ai_patcher.core import _atomic_write
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "binary.bin"
+            _atomic_write(target, b"\x00\x01\x02", 0o644)
+            self.assertEqual(target.read_bytes(), b"\x00\x01\x02")
