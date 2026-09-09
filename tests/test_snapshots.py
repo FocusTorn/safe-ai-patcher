@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from safe_ai_patcher.core import Change, PatchError
-from safe_ai_patcher.snapshots import create_snapshot, restore_snapshot
+from safe_ai_patcher.snapshots import cleanup_snapshots, create_snapshot, restore_snapshot
 
 
 class SnapshotTests(unittest.TestCase):
@@ -96,3 +96,127 @@ class SnapshotTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_cleanup_keeps_newest_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".sap" / "transactions").mkdir(parents=True)
+
+            for name in ("one", "two", "three"):
+                directory = root / ".sap" / "transactions" / name
+                directory.mkdir()
+                (directory / "metadata.json").write_text('{"paths": []}')
+
+            import os
+            os.utime(
+                root / ".sap" / "transactions" / "one",
+                (1, 1),
+            )
+            os.utime(
+                root / ".sap" / "transactions" / "two",
+                (2, 2),
+            )
+            os.utime(
+                root / ".sap" / "transactions" / "three",
+                (3, 3),
+            )
+
+            removed = cleanup_snapshots(root, keep=2)
+
+            self.assertEqual(removed, ["one"])
+            self.assertTrue(
+                (root / ".sap" / "transactions" / "two").is_dir()
+            )
+            self.assertTrue(
+                (root / ".sap" / "transactions" / "three").is_dir()
+            )
+
+    def test_cleanup_preserves_rollback_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transactions = root / ".sap" / "transactions"
+            transactions.mkdir(parents=True)
+
+            for name in ("old", "new"):
+                directory = transactions / name
+                directory.mkdir()
+                (directory / "metadata.json").write_text('{"paths": []}')
+
+            history = root / ".sap" / "history.jsonl"
+            history.write_text(
+                '{"id":"rollback","status":"rollback",'
+                '"paths":[],"rollback_of":"old"}\n'
+            )
+
+            import os
+            os.utime(transactions / "old", (1, 1))
+            os.utime(transactions / "new", (2, 2))
+
+            removed = cleanup_snapshots(root, keep=0)
+
+            self.assertEqual(removed, ["new"])
+            self.assertTrue((transactions / "old").is_dir())
+            self.assertFalse((transactions / "new").is_dir())
+
+
+    def test_cleanup_keeps_newest_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".sap" / "transactions").mkdir(parents=True)
+
+            for name in ("one", "two", "three"):
+                directory = root / ".sap" / "transactions" / name
+                directory.mkdir()
+                (directory / "metadata.json").write_text('{"paths": []}')
+
+            import os
+            os.utime(
+                root / ".sap" / "transactions" / "one",
+                (1, 1),
+            )
+            os.utime(
+                root / ".sap" / "transactions" / "two",
+                (2, 2),
+            )
+            os.utime(
+                root / ".sap" / "transactions" / "three",
+                (3, 3),
+            )
+
+            removed = cleanup_snapshots(root, keep=2)
+
+            self.assertEqual(removed, ["one"])
+            self.assertTrue(
+                (root / ".sap" / "transactions" / "two").is_dir()
+            )
+            self.assertTrue(
+                (root / ".sap" / "transactions" / "three").is_dir()
+            )
+
+    def test_cleanup_preserves_rollback_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transactions = root / ".sap" / "transactions"
+            transactions.mkdir(parents=True)
+
+            for name in ("old", "new"):
+                directory = transactions / name
+                directory.mkdir()
+                (directory / "metadata.json").write_text('{"paths": []}')
+
+            history = root / ".sap" / "history.jsonl"
+            history.write_text(
+                '{"id":"rollback","status":"rollback",'
+                '"paths":[],"rollback_of":"old"}\n'
+            )
+
+            import os
+            os.utime(transactions / "old", (1, 1))
+            os.utime(transactions / "new", (2, 2))
+
+            removed = cleanup_snapshots(root, keep=0)
+
+            self.assertEqual(removed, ["new"])
+            self.assertTrue((transactions / "old").is_dir())
+            self.assertFalse((transactions / "new").is_dir())

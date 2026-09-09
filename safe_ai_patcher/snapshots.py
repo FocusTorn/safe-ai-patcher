@@ -115,3 +115,97 @@ def restore_snapshot(
         restored.append(entry["path"])
 
     return restored
+
+
+def cleanup_snapshots(
+    root: str | Path,
+    keep: int = 10,
+) -> list[str]:
+    """Remove old transaction snapshots while preserving rollback targets."""
+    if keep < 0:
+        raise ValueError("keep must be non-negative")
+
+    root = Path(root).resolve()
+    transactions = root / ".sap" / "transactions"
+
+    if not transactions.is_dir():
+        return []
+
+    from .history import load_history
+
+    protected = {
+        record["rollback_of"]
+        for record in load_history(root)
+        if record.get("rollback_of")
+    }
+
+    directories = [
+        path
+        for path in transactions.iterdir()
+        if path.is_dir() and (path / "metadata.json").is_file()
+    ]
+    directories.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+
+    removable = [
+        path
+        for path in directories[keep:]
+        if path.name not in protected
+    ]
+
+    removed = []
+
+    for directory in removable:
+        for child in directory.iterdir():
+            if child.is_file() or child.is_symlink():
+                child.unlink()
+        directory.rmdir()
+        removed.append(directory.name)
+
+    return removed
+
+
+def cleanup_snapshots(
+    root: str | Path,
+    keep: int = 10,
+) -> list[str]:
+    """Remove old transaction snapshots while preserving rollback targets."""
+    if keep < 0:
+        raise ValueError("keep must be non-negative")
+
+    root = Path(root).resolve()
+    transactions = root / ".sap" / "transactions"
+
+    if not transactions.is_dir():
+        return []
+
+    from .history import load_history
+
+    protected = {
+        record["rollback_of"]
+        for record in load_history(root)
+        if record.get("rollback_of")
+    }
+
+    directories = [
+        path
+        for path in transactions.iterdir()
+        if path.is_dir() and (path / "metadata.json").is_file()
+    ]
+    directories.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+
+    removable = [
+        path
+        for path in directories[keep:]
+        if path.name not in protected
+    ]
+
+    removed = []
+
+    for directory in removable:
+        for child in directory.iterdir():
+            if child.is_file() or child.is_symlink():
+                child.unlink()
+        directory.rmdir()
+        removed.append(directory.name)
+
+    return removed
