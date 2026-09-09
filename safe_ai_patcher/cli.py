@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         help="Command to run after applying the changes.",
     )
+    apply_parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="Allow applying over uncommitted changes to the same files.",
+    )
 
     diff_parser = subparsers.add_parser(
         "diff",
@@ -152,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
                 root,
                 change_set.changes,
                 test_command=args.test,
+                allow_dirty=args.allow_dirty,
             )
         except PatchError as exc:
             print(f"sap: patch rejected: {exc}", file=sys.stderr)

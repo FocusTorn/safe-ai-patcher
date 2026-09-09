@@ -1,3 +1,4 @@
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -60,6 +61,74 @@ class TransactionTests(unittest.TestCase):
                     tmp,
                     [Change("../escape.txt", "nope")],
                 )
+
+    def test_rejects_dirty_git_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            subprocess.run(
+                ["git", "-C", str(root), "init", "-q"],
+                check=True,
+            )
+
+            target = root / "hello.txt"
+            target.write_text("original\n", encoding="utf-8")
+
+            subprocess.run(
+                ["git", "-C", str(root), "add", "hello.txt"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "initial"],
+                check=True,
+            )
+
+            target.write_text("local change\n", encoding="utf-8")
+
+            with self.assertRaises(PatchError):
+                apply_changes(
+                    root,
+                    [Change("hello.txt", "patch\n")],
+                )
+
+            self.assertEqual(
+                target.read_text(encoding="utf-8"),
+                "local change\n",
+            )
+
+    def test_allows_dirty_git_target_with_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            subprocess.run(
+                ["git", "-C", str(root), "init", "-q"],
+                check=True,
+            )
+
+            target = root / "hello.txt"
+            target.write_text("original\n", encoding="utf-8")
+
+            subprocess.run(
+                ["git", "-C", str(root), "add", "hello.txt"],
+                check=True,
+            )
+            subprocess.run(
+                ["git", "-C", str(root), "commit", "-qm", "initial"],
+                check=True,
+            )
+
+            target.write_text("local change\n", encoding="utf-8")
+
+            apply_changes(
+                root,
+                [Change("hello.txt", "patch\n")],
+                allow_dirty=True,
+            )
+
+            self.assertEqual(
+                target.read_text(encoding="utf-8"),
+                "patch\n",
+            )
 
     def test_rejects_duplicate_paths(self):
         with tempfile.TemporaryDirectory() as tmp:

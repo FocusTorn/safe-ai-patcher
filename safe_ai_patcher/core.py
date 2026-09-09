@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .history import record_transaction
+from .project import detect_git, git_changed_paths
 
 
 class PatchError(Exception):
@@ -140,6 +141,7 @@ def apply_changes(
     root: str | Path,
     changes: list[Change],
     test_command: list[str] | None = None,
+    allow_dirty: bool = False,
 ) -> None:
     """Apply changes as one transaction.
 
@@ -158,6 +160,22 @@ def apply_changes(
 
     if len(paths) != len(set(paths)):
         raise PatchError("Duplicate paths in change set")
+
+    if not allow_dirty:
+        git = detect_git(root)
+
+        if git.available:
+            changed_paths = git_changed_paths(git.root)
+            patch_paths = {change.path for change in changes}
+
+            conflicts = sorted(changed_paths & patch_paths)
+
+            if conflicts:
+                raise PatchError(
+                    "Git worktree has uncommitted changes in: "
+                    + ", ".join(conflicts)
+                    + " (use allow_dirty=True to override)"
+                )
 
     snapshots = _snapshot(root, changes)
 

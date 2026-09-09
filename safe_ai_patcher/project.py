@@ -50,6 +50,36 @@ def detect_project(start: str | Path = ".") -> ProjectInfo:
     return ProjectInfo(current, None)
 
 
+def git_changed_paths(root: str | Path) -> set[str]:
+    """Return paths currently changed in the Git worktree."""
+    root = Path(root).resolve()
+
+    result = subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        return set()
+
+    paths = set()
+
+    for line in result.stdout.splitlines():
+        if not line:
+            continue
+
+        value = line[3:]
+
+        if " -> " in value:
+            value = value.split(" -> ", 1)[1]
+
+        paths.add(value)
+
+    return paths
+
+
 def detect_git(start: str | Path = ".") -> GitInfo:
     """Inspect Git state without modifying the repository."""
     project = detect_project(start)
