@@ -48,3 +48,11 @@ The project is intentionally independent of any particular programming language,
 ## License
 
 TBD
+
+### Snapshot Cleanup
+
+Remove old transaction snapshots while preserving history-protected rollback targets:
+
+```bash
+sap cleanup --keep 10
+```

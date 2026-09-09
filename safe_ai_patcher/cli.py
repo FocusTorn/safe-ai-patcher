@@ -58,16 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Show one transaction by full ID.",
     )
-    cleanup_parser = subparsers.add_parser(
-        "cleanup",
-        help="Remove old transaction snapshots.",
-    )
-    cleanup_parser.add_argument(
-        "--keep",
-        type=int,
-        default=10,
-        help="Number of newest snapshots to keep (default: 10).",
-    )
+
     cleanup_parser = subparsers.add_parser(
         "cleanup",
         help="Remove old transaction snapshots.",

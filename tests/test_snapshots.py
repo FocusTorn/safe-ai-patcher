@@ -220,3 +220,45 @@ if __name__ == "__main__":
             self.assertEqual(removed, ["new"])
             self.assertTrue((transactions / "old").is_dir())
             self.assertFalse((transactions / "new").is_dir())
+
+
+    def test_cleanup_negative_keep_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".sap" / "transactions").mkdir(parents=True)
+            with self.assertRaises(ValueError):
+                cleanup_snapshots(root, keep=-1)
+
+    def test_cleanup_missing_transactions_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            removed = cleanup_snapshots(root, keep=5)
+            self.assertEqual(removed, [])
+
+    def test_cleanup_ignores_malformed_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transactions = root / ".sap" / "transactions"
+            transactions.mkdir(parents=True)
+
+            # Directory without metadata.json should be ignored
+            bad_dir = transactions / "not_a_transaction"
+            bad_dir.mkdir()
+
+            removed = cleanup_snapshots(root, keep=0)
+            self.assertEqual(removed, [])
+            self.assertTrue(bad_dir.is_dir())
+
+    def test_cleanup_leaves_unrelated_files_untouched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sap_dir = root / ".sap"
+            sap_dir.mkdir(parents=True)
+
+            # Create an unrelated file inside .sap
+            history_file = sap_dir / "history.jsonl"
+            history_file.write_text('unrelated data\n')
+
+            removed = cleanup_snapshots(root, keep=0)
+            self.assertEqual(removed, [])
+            self.assertTrue(history_file.is_file())
