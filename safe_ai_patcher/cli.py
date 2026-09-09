@@ -53,6 +53,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=10,
         help="Number of transactions to show.",
     )
+    history_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output transaction history as JSON.",
+    )
 
     subparsers.add_parser(
         "info",
@@ -89,6 +94,12 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("history limit must be at least 1")
 
         records = load_history(root, args.limit)
+
+        if args.json:
+            import json
+
+            print(json.dumps(records, indent=2))
+            return 0
 
         if not records:
             print("No transaction history.")

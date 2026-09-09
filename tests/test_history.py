@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from safe_ai_patcher.cli import main
 from safe_ai_patcher.history import load_history, record_transaction
 
 
@@ -73,6 +74,39 @@ class HistoryTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["status"], "rolled_back")
             self.assertEqual(records[0]["paths"], ["second.txt"])
+
+    def test_history_json_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            record_transaction(
+                root,
+                status="committed",
+                paths=["hello.txt"],
+            )
+
+            old_cwd = Path.cwd()
+
+            try:
+                import os
+                os.chdir(root)
+
+                from io import StringIO
+                from contextlib import redirect_stdout
+
+                output = StringIO()
+
+                with redirect_stdout(output):
+                    result = main(["history", "--json"])
+
+                self.assertEqual(result, 0)
+
+                data = json.loads(output.getvalue())
+                self.assertEqual(len(data), 1)
+                self.assertEqual(data[0]["status"], "committed")
+                self.assertEqual(data[0]["paths"], ["hello.txt"])
+            finally:
+                os.chdir(old_cwd)
 
     def test_missing_history_is_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
