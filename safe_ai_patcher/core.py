@@ -200,19 +200,28 @@ def apply_changes(
 
     except Exception as exc:
         _rollback(snapshots)
-        record_transaction(
-            root,
-            status="rolled_back",
-            paths=[change.path for change in changes],
-            test_command=test_command,
-            error=str(exc),
-        )
+        try:
+            record_transaction(
+                root,
+                status="rolled_back",
+                paths=[change.path for change in changes],
+                test_command=test_command,
+                error=str(exc),
+                transaction_id=transaction_id,
+            )
+        except OSError:
+            pass
         raise
     else:
-        record_transaction(
-            root,
-            status="committed",
-            paths=[change.path for change in changes],
-            test_command=test_command,
-            transaction_id=transaction_id,
-        )
+        try:
+            record_transaction(
+                root,
+                status="committed",
+                paths=[change.path for change in changes],
+                test_command=test_command,
+                transaction_id=transaction_id,
+            )
+        except OSError:
+            pass
+
+    return transaction_id

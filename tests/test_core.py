@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from safe_ai_patcher.core import Change, PatchError, apply_changes
@@ -140,6 +141,53 @@ class TransactionTests(unittest.TestCase):
                         Change("same.txt", "two"),
                     ],
                 )
+
+    def test_history_failure_does_not_fail_successful_apply(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "hello.txt"
+            target.write_text("original\n", encoding="utf-8")
+
+            with patch(
+                "safe_ai_patcher.core.record_transaction",
+                side_effect=OSError("history unavailable"),
+            ):
+                transaction_id = apply_changes(
+                    root,
+                    [Change("hello.txt", "changed\n")],
+                )
+
+            self.assertTrue(transaction_id)
+            self.assertEqual(
+                target.read_text(encoding="utf-8"),
+                "changed\n",
+            )
+
+    def test_history_failure_does_not_hide_apply_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / "hello.txt"
+            target.write_text("original\n", encoding="utf-8")
+
+            with patch(
+                "safe_ai_patcher.core.record_transaction",
+                side_effect=OSError("history unavailable"),
+            ):
+                with self.assertRaises(Exception):
+                    apply_changes(
+                        root,
+                        [Change("hello.txt", "changed\n")],
+                        test_command=[
+                            "python",
+                            "-c",
+                            "raise SystemExit(1)",
+                        ],
+                    )
+
+            self.assertEqual(
+                target.read_text(encoding="utf-8"),
+                "original\n",
+            )
 
 
 if __name__ == "__main__":

@@ -123,12 +123,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
-        record_transaction(
-            root,
-            status="rollback",
-            paths=paths,
-            rollback_of=args.transaction_id,
-        )
+        try:
+            record_transaction(
+                root,
+                status="rollback",
+                paths=paths,
+                rollback_of=args.transaction_id,
+            )
+        except OSError:
+            pass
 
         print(
             f"Rolled back {args.transaction_id}: "
