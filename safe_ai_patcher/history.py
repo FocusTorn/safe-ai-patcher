@@ -17,6 +17,9 @@ def record_transaction(
     error: str | None = None,
     transaction_id: str | None = None,
     rollback_of: str | None = None,
+    changes_count: int | None = None,
+    duration: float | None = None,
+    version: str = "0.2.0",
 ) -> str:
     """Append a transaction record to .sap/history.jsonl."""
     root = Path(root).resolve()
@@ -30,6 +33,15 @@ def record_transaction(
         "paths": paths,
         "test_command": test_command,
     }
+
+    if changes_count is not None:
+        record["changes_count"] = changes_count
+
+    if duration is not None:
+        record["duration"] = duration
+
+    if version is not None:
+        record["version"] = version
 
     if error is not None:
         record["error"] = error

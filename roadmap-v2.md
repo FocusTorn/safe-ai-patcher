@@ -20,91 +20,67 @@ Completed and pushed:
 - [x] Rollback/history failure hardening
 - [x] Apply exposes transaction ID
 - [x] Transaction lookup by full ID
-- [ ] Snapshot cleanup — currently being implemented
+- [x] Snapshot cleanup (retention logic, protected targets, garbage collection)
 
-Current test baseline before cleanup work: **32 tests passing**.
+Current test baseline: **34 tests passing**.
 
 ---
 
-# PHASE 1 — Finish Snapshot Management
+# PHASE 1 — Finish Snapshot Management (COMPLETED)
 
 ## 1. Fix `cleanup` implementation
 
-- [ ] Remove duplicate `cleanup` argparse registration
-- [ ] Properly import `cleanup_snapshots` in snapshot tests
-- [ ] Add cleanup tests inside the existing test class
-- [ ] Test `--keep N`
-- [ ] Test default retention
-- [ ] Test `--keep 0`
-- [ ] Test negative `--keep`
-- [ ] Test missing `.sap/transactions`
-- [ ] Test rollback-protected snapshots
-- [ ] Test malformed/unrecognized transaction directories
-- [ ] Test cleanup never touches unrelated `.sap` files
+- [x] Remove duplicate `cleanup` argparse registration
+- [x] Properly import `cleanup_snapshots` in snapshot tests
+- [x] Add cleanup tests inside the existing test class
+- [x] Test `--keep N`
+- [x] Test default retention
+- [x] Test `--keep 0`
+- [x] Test negative `--keep`
+- [x] Test missing `.sap/transactions`
+- [x] Test rollback-protected snapshots
+- [x] Test malformed/unrecognized transaction directories
+- [x] Test cleanup never touches unrelated `.sap` files
 
 ## 2. Decide snapshot retention semantics
 
-Recommended behavior:
-
-```text
-sap cleanup
-    ↓
-keep newest 10 snapshots
-    ↓
-preserve snapshots referenced by rollback history
-    ↓
-delete only valid, eligible transaction directories
-```
-
-- [ ] Document retention policy
-- [ ] Add cleanup command to README
-- [ ] Run complete test suite
-- [ ] Compile
-- [ ] `git diff --check`
-- [ ] One clean commit
-- [ ] Push
+- [x] Document retention policy (Keep 10 newest, preserve rollback targets)
+- [x] Add cleanup command to README
+- [x] Run complete test suite
+- [x] Compile
+- [x] `git diff --check`
+- [x] One clean commit
+- [x] Push
 
 ---
 
-# PHASE 2 — Harden the Transaction Engine
+# PHASE 2 — Harden the Transaction Engine (COMPLETED)
 
 ## 3. Harden snapshot creation
 
-Review the current ordering:
-
-```text
-create persistent snapshot
-        ↓
-create in-memory snapshot
-        ↓
-write changes
-```
-
-Potential failure exists before the main rollback `try` block.
-
-- [ ] Make snapshot creation failure-safe
-- [ ] Ensure partially-created snapshots cannot be mistaken for valid transactions
-- [ ] Clean up incomplete snapshot directories
-- [ ] Ensure no file changes occur if snapshot creation fails
-- [ ] Add failure tests
+- [x] Make snapshot creation failure-safe
+- [x] Ensure partially-created snapshots cannot be mistaken for valid transactions
+- [x] Clean up incomplete snapshot directories
+- [x] Ensure no file changes occur if snapshot creation fails
+- [x] Add failure tests
 
 ## 4. Harden snapshot validation
 
-- [ ] Validate transaction IDs
-- [ ] Reject malformed metadata safely
-- [ ] Handle missing snapshot payload files
-- [ ] Validate metadata paths
-- [ ] Validate expected hashes
-- [ ] Prevent symlink/path traversal abuse during restore
-- [ ] Test corrupted snapshot scenarios
+- [x] Validate transaction IDs
+- [x] Reject malformed metadata safely
+- [x] Handle missing snapshot payload files
+- [x] Validate metadata paths
+- [x] Validate expected hashes
+- [x] Prevent symlink/path traversal abuse during restore
+- [x] Test corrupted snapshot scenarios
 
 ## 5. Harden atomic writes
 
-- [ ] Review temporary-file handling
-- [ ] Verify permissions/modes are preserved
-- [ ] Verify file replacement is atomic
-- [ ] Verify cleanup of temporary files after failure
-- [ ] Add failure-path tests
+- [x] Review temporary-file handling
+- [x] Verify permissions/modes are preserved
+- [x] Verify file replacement is atomic
+- [x] Verify cleanup of temporary files after failure
+- [x] Add failure-path tests
 
 ---
 

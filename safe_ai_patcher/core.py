@@ -1,6 +1,7 @@
 """Core transaction engine for Safe AI Patcher."""
 
 from __future__ import annotations
+import time
 
 import os
 import subprocess
@@ -161,6 +162,7 @@ def apply_changes(
 
     from .snapshots import create_snapshot
 
+    start_time = time.perf_counter()
     transaction_id = create_snapshot(root, changes)
     snapshots = _snapshot(root, changes)
 
@@ -182,6 +184,7 @@ def apply_changes(
 
     except Exception as exc:
         _rollback(snapshots)
+        duration = time.perf_counter() - start_time
         try:
             record_transaction(
                 root,
@@ -190,11 +193,14 @@ def apply_changes(
                 test_command=test_command,
                 error=str(exc),
                 transaction_id=transaction_id,
+                changes_count=len(changes),
+                duration=duration,
             )
         except OSError:
             pass
         raise
     else:
+        duration = time.perf_counter() - start_time
         try:
             record_transaction(
                 root,
@@ -202,6 +208,8 @@ def apply_changes(
                 paths=[change.path for change in changes],
                 test_command=test_command,
                 transaction_id=transaction_id,
+                changes_count=len(changes),
+                duration=duration,
             )
         except OSError:
             pass
