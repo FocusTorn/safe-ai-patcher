@@ -1,0 +1,2 @@
+#!/data/data/com.termux/files/usr/bin/bash
+exec python "$HOME/safe-ai-patcher/safe_ai_patcher/cli.py" "$@"

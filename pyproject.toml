@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "safe-ai-patcher"
+version = "0.1.0"
+description = "Safely apply AI-generated code changes."
+requires-python = ">=3.9"
+
+[project.scripts]
+sap = "safe_ai_patcher.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
