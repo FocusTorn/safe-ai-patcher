@@ -58,6 +58,26 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="Show one transaction by full ID.",
     )
+    cleanup_parser = subparsers.add_parser(
+        "cleanup",
+        help="Remove old transaction snapshots.",
+    )
+    cleanup_parser.add_argument(
+        "--keep",
+        type=int,
+        default=10,
+        help="Number of newest snapshots to keep (default: 10).",
+    )
+    cleanup_parser = subparsers.add_parser(
+        "cleanup",
+        help="Remove old transaction snapshots.",
+    )
+    cleanup_parser.add_argument(
+        "--keep",
+        type=int,
+        default=10,
+        help="Number of newest snapshots to keep (default: 10).",
+    )
 
     rollback_parser = subparsers.add_parser(
         "rollback",
@@ -143,6 +163,20 @@ def main(argv: list[str] | None = None) -> int:
             f"Rolled back {args.transaction_id}: "
             f"{len(paths)} file(s)"
         )
+        return 0
+
+    if args.command == "cleanup":
+        from .snapshots import cleanup_snapshots
+
+        try:
+            removed = cleanup_snapshots(root, args.keep)
+        except ValueError as exc:
+            print(f"sap: cleanup failed: {exc}", file=sys.stderr)
+            return 1
+
+        print(f"Cleaned up {len(removed)} snapshot(s)")
+        for transaction_id in removed:
+            print(f"Removed: {transaction_id}")
         return 0
 
     if args.command == "history":
