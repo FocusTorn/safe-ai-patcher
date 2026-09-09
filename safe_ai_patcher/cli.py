@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 from .changes import generate_diff, load_changes
-from .history import load_history
+from .history import load_history, load_transaction
 from .core import PatchError, apply_changes
 from .project import detect_git, detect_project
 
@@ -51,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
     history_parser = subparsers.add_parser(
         "history",
         help="Show transaction history.",
+    )
+    history_parser.add_argument(
+        "transaction_id",
+        nargs="?",
+        help="Show one transaction by full ID.",
     )
 
     rollback_parser = subparsers.add_parser(
@@ -145,11 +151,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.limit < 1:
             parser.error("history limit must be at least 1")
 
+        if args.transaction_id:
+            record = load_transaction(root, args.transaction_id)
+
+            if record is None:
+                print(
+                    f"Transaction not found: {args.transaction_id}",
+                    file=sys.stderr,
+                )
+                return 1
+
+            print(json.dumps(record, indent=2, sort_keys=True))
+            return 0
+
         records = load_history(root, args.limit)
 
         if args.json:
-            import json
-
             print(json.dumps(records, indent=2))
             return 0
 

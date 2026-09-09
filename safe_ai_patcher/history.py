@@ -46,6 +46,17 @@ def record_transaction(
     return record["id"]
 
 
+def load_transaction(
+    root: str | Path,
+    transaction_id: str,
+) -> dict | None:
+    """Load one transaction by its full ID."""
+    for record in load_history(root):
+        if record.get("id") == transaction_id:
+            return record
+    return None
+
+
 def load_history(
     root: str | Path,
     limit: int | None = None,

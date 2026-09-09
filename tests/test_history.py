@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from safe_ai_patcher.cli import main
-from safe_ai_patcher.history import load_history, record_transaction
+from safe_ai_patcher.history import load_history, load_transaction, record_transaction
 
 
 class HistoryTests(unittest.TestCase):
@@ -52,6 +52,23 @@ class HistoryTests(unittest.TestCase):
 
             self.assertEqual(record["status"], "rolled_back")
             self.assertEqual(record["error"], "test failed")
+
+    def test_loads_transaction_by_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            transaction_id = record_transaction(
+                root,
+                status="committed",
+                paths=["hello.txt"],
+            )
+
+            record = load_transaction(root, transaction_id)
+
+            self.assertIsNotNone(record)
+            self.assertEqual(record["id"], transaction_id)
+            self.assertEqual(record["paths"], ["hello.txt"])
+
 
     def test_loads_newest_first_with_limit(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -107,6 +124,37 @@ class HistoryTests(unittest.TestCase):
                 self.assertEqual(data[0]["paths"], ["hello.txt"])
             finally:
                 os.chdir(old_cwd)
+
+    def test_history_transaction_cli_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            transaction_id = record_transaction(
+                root,
+                status="committed",
+                paths=["hello.txt"],
+            )
+
+            old_cwd = Path.cwd()
+
+            try:
+                import os
+                from io import StringIO
+                from contextlib import redirect_stdout
+
+                os.chdir(root)
+                output = StringIO()
+
+                with redirect_stdout(output):
+                    result = main(["history", transaction_id])
+
+                self.assertEqual(result, 0)
+                data = json.loads(output.getvalue())
+                self.assertEqual(data["id"], transaction_id)
+                self.assertEqual(data["status"], "committed")
+            finally:
+                os.chdir(old_cwd)
+
 
     def test_missing_history_is_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
