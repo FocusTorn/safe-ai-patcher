@@ -202,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
             change_set = load_changes(change_file)
-            apply_changes(
+            transaction_id = apply_changes(
                 root,
                 change_set.changes,
                 test_command=args.test,
@@ -213,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         print(f"Applied safely: {len(change_set.changes)} change(s)")
+        print(f"Transaction: {transaction_id}")
         return 0
 
     parser.error("unknown command")
