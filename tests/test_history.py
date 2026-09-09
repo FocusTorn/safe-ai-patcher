@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from safe_ai_patcher.history import record_transaction
+from safe_ai_patcher.history import load_history, record_transaction
 
 
 class HistoryTests(unittest.TestCase):
@@ -51,6 +51,32 @@ class HistoryTests(unittest.TestCase):
 
             self.assertEqual(record["status"], "rolled_back")
             self.assertEqual(record["error"], "test failed")
+
+    def test_loads_newest_first_with_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            record_transaction(
+                root,
+                status="committed",
+                paths=["first.txt"],
+            )
+            record_transaction(
+                root,
+                status="rolled_back",
+                paths=["second.txt"],
+                error="failed",
+            )
+
+            records = load_history(root, limit=1)
+
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["status"], "rolled_back")
+            self.assertEqual(records[0]["paths"], ["second.txt"])
+
+    def test_missing_history_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(load_history(tmp), [])
 
 
 if __name__ == "__main__":

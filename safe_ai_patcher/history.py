@@ -37,3 +37,27 @@ def record_transaction(
         encoding="utf-8",
     ) as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def load_history(
+    root: str | Path,
+    limit: int | None = None,
+) -> list[dict]:
+    """Load transaction history, newest first."""
+    history = Path(root).resolve() / ".sap" / "history.jsonl"
+
+    if not history.is_file():
+        return []
+
+    records = []
+
+    for line in history.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            records.append(json.loads(line))
+
+    records.reverse()
+
+    if limit is not None:
+        records = records[:limit]
+
+    return records

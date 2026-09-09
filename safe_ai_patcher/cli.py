@@ -6,6 +6,7 @@ import argparse
 import sys
 
 from .changes import generate_diff, load_changes
+from .history import load_history
 from .core import PatchError, apply_changes
 from .project import detect_git, detect_project
 
@@ -41,6 +42,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSON change file.",
     )
 
+    history_parser = subparsers.add_parser(
+        "history",
+        help="Show transaction history.",
+    )
+    history_parser.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=10,
+        help="Number of transactions to show.",
+    )
+
     subparsers.add_parser(
         "info",
         help="Show detected project and Git information.",
@@ -66,6 +79,39 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Git status: {'dirty' if git.dirty else 'clean'}")
         else:
             print("Git: not a repository")
+
+        return 0
+
+    if args.command == "history":
+        root = detect_project().root
+
+        if args.limit < 1:
+            parser.error("history limit must be at least 1")
+
+        records = load_history(root, args.limit)
+
+        if not records:
+            print("No transaction history.")
+            return 0
+
+        for record in records:
+            print(
+                f"{record["timestamp"]} "
+                f"{record["status"]} "
+                f"{record["id"][:8]}"
+            )
+
+            for path in record["paths"]:
+                print(f"  {path}")
+
+            if record.get("test_command"):
+                print(
+                    "  test: "
+                    + " ".join(record["test_command"])
+                )
+
+            if record.get("error"):
+                print(f"  error: {record["error"]}")
 
         return 0
 
