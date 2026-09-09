@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from .core import Change, PatchError, apply_changes
+from .project import detect_git, detect_project
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,6 +35,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Command to run after applying the change.",
     )
 
+    subparsers.add_parser(
+        "info",
+        help="Show detected project and Git information.",
+    )
+
     return parser
 
 
@@ -42,8 +47,24 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.command == "info":
+        project = detect_project()
+        git = detect_git(project.root)
+
+        print(f"Project root: {project.root}")
+        print(f"Project marker: {project.marker or 'none'}")
+
+        if git.available:
+            print(f"Git root: {git.root}")
+            print(f"Git branch: {git.branch or 'detached/no branch'}")
+            print(f"Git status: {'dirty' if git.dirty else 'clean'}")
+        else:
+            print("Git: not a repository")
+
+        return 0
+
     if args.command == "apply":
-        root = Path.cwd()
+        root = detect_project().root
 
         try:
             apply_changes(
