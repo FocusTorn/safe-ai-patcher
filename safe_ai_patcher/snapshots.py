@@ -16,37 +16,42 @@ def _hash_bytes(data: bytes) -> str:
 
 def create_snapshot(root: str | Path, changes: list[Change]) -> str:
     """Persist pre-transaction state plus expected post-transaction state."""
+    import shutil
     root = Path(root).resolve()
     transaction_id = uuid4().hex
     directory = root / ".sap" / "transactions" / transaction_id
     directory.mkdir(parents=True, exist_ok=False)
 
-    snapshots = _snapshot(root, changes)
-    metadata = []
+    try:
+        snapshots = _snapshot(root, changes)
+        metadata = []
 
-    for index, (snapshot, change) in enumerate(zip(snapshots, changes)):
-        entry = {
-            "path": str(snapshot.path.relative_to(root)),
-            "existed": snapshot.existed,
-            "mode": snapshot.mode,
-            "expected_exists": True,
-            "expected_hash": _hash_bytes(change.content.encode("utf-8")),
-        }
+        for index, (snapshot, change) in enumerate(zip(snapshots, changes)):
+            entry = {
+                "path": str(snapshot.path.relative_to(root)),
+                "existed": snapshot.existed,
+                "mode": snapshot.mode,
+                "expected_exists": True,
+                "expected_hash": _hash_bytes(change.content.encode("utf-8")),
+            }
 
-        if snapshot.existed:
-            data = snapshot.content
-            filename = f"{index}.bin"
-            (directory / filename).write_bytes(data)
-            entry["file"] = filename
+            if snapshot.existed:
+                data = snapshot.content
+                filename = f"{index}.bin"
+                (directory / filename).write_bytes(data)
+                entry["file"] = filename
 
-        metadata.append(entry)
+            metadata.append(entry)
 
-    (directory / "metadata.json").write_text(
-        json.dumps({"paths": metadata}, indent=2),
-        encoding="utf-8",
-    )
+        (directory / "metadata.json").write_text(
+            json.dumps({"paths": metadata}, indent=2),
+            encoding="utf-8",
+        )
 
-    return transaction_id
+        return transaction_id
+    except Exception:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise
 
 
 def _current_matches_expected(root: Path, entry: dict) -> bool:
@@ -139,18 +144,24 @@ def cleanup_snapshots(
         if record.get("rollback_of")
     }
 
-    directories = [
-        path
-        for path in transactions.iterdir()
-        if path.is_dir() and (path / "metadata.json").is_file()
-    ]
+    directories = []
+    garbage = []
+
+    for path in transactions.iterdir():
+        if not path.is_dir():
+            continue
+        if (path / "metadata.json").is_file():
+            directories.append(path)
+        else:
+            garbage.append(path)
+
     directories.sort(key=lambda path: path.stat().st_mtime, reverse=True)
 
     removable = [
         path
         for path in directories[keep:]
         if path.name not in protected
-    ]
+    ] + garbage
 
     removed = []
 

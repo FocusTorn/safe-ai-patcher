@@ -235,20 +235,6 @@ if __name__ == "__main__":
             removed = cleanup_snapshots(root, keep=5)
             self.assertEqual(removed, [])
 
-    def test_cleanup_ignores_malformed_directories(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            transactions = root / ".sap" / "transactions"
-            transactions.mkdir(parents=True)
-
-            # Directory without metadata.json should be ignored
-            bad_dir = transactions / "not_a_transaction"
-            bad_dir.mkdir()
-
-            removed = cleanup_snapshots(root, keep=0)
-            self.assertEqual(removed, [])
-            self.assertTrue(bad_dir.is_dir())
-
     def test_cleanup_leaves_unrelated_files_untouched(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -262,3 +248,60 @@ if __name__ == "__main__":
             removed = cleanup_snapshots(root, keep=0)
             self.assertEqual(removed, [])
             self.assertTrue(history_file.is_file())
+
+
+    def test_snapshot_creation_cleans_up_on_failure(self):
+        from unittest.mock import patch
+        from safe_ai_patcher.core import Change
+        from safe_ai_patcher.snapshots import create_snapshot
+
+        with patch("safe_ai_patcher.snapshots.Path.write_bytes") as mock_write:
+            mock_write.side_effect = OSError("Disk full")
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                target = root / "test.txt"
+                target.write_text("old")
+
+                change = Change(path="test.txt", content="new")
+
+                with self.assertRaises(OSError):
+                    create_snapshot(root, [change])
+
+                transactions = root / ".sap" / "transactions"
+                if transactions.exists():
+                    self.assertEqual(list(transactions.iterdir()), [])
+
+    def test_snapshot_creation_cleans_up_on_metadata_failure(self):
+        from unittest.mock import patch
+        from safe_ai_patcher.core import Change
+        from safe_ai_patcher.snapshots import create_snapshot
+
+        with patch("safe_ai_patcher.snapshots.Path.write_text") as mock_write:
+            mock_write.side_effect = OSError("Disk full")
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                change = Change(path="new.txt", content="new")
+
+                with self.assertRaises(OSError):
+                    create_snapshot(root, [change])
+
+                transactions = root / ".sap" / "transactions"
+                if transactions.exists():
+                    self.assertEqual(list(transactions.iterdir()), [])
+
+    def test_cleanup_removes_incomplete_snapshot_directories(self):
+        from safe_ai_patcher.snapshots import cleanup_snapshots
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            transactions = root / ".sap" / "transactions"
+            transactions.mkdir(parents=True)
+
+            # Directory WITHOUT metadata.json (incomplete/garbage)
+            garbage_dir = transactions / "incomplete_transaction"
+            garbage_dir.mkdir()
+            (garbage_dir / "0.bin").write_bytes(b"data")
+
+            removed = cleanup_snapshots(root, keep=10)
+
+            self.assertIn("incomplete_transaction", removed)
+            self.assertFalse(garbage_dir.exists())
