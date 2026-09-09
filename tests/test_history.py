@@ -161,5 +161,27 @@ class HistoryTests(unittest.TestCase):
             self.assertEqual(load_history(tmp), [])
 
 
+
+    def test_all_transaction_statuses(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            # Record each status type
+            t1 = record_transaction(root, status="committed", paths=["a.py"])
+            t2 = record_transaction(root, status="rolled_back", paths=["b.py"], error="failed tests")
+            t3 = record_transaction(root, status="rollback", paths=["c.py"], rollback_of=t1)
+
+            history = load_history(root)
+            self.assertEqual(len(history), 3)
+
+            statuses = {r["status"] for r in history}
+            self.assertEqual(statuses, {"committed", "rolled_back", "rollback"})
+
+            # Verify relationship on manual rollback
+            rollback_record = load_transaction(root, t3)
+            self.assertEqual(rollback_record["rollback_of"], t1)
+
+
 if __name__ == "__main__":
+
     unittest.main()
