@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .core import Change, PatchError, apply_changes
+from .changes import generate_diff, load_changes
+from .core import PatchError, apply_changes
 from .project import detect_git, detect_project
 
 
@@ -19,20 +20,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     apply_parser = subparsers.add_parser(
         "apply",
-        help="Apply a file change as a transaction.",
+        help="Apply a structured change file as a transaction.",
     )
     apply_parser.add_argument(
-        "file",
-        help="File to change, relative to the project root.",
-    )
-    apply_parser.add_argument(
-        "content",
-        help="New file contents.",
+        "change_file",
+        help="JSON change file.",
     )
     apply_parser.add_argument(
         "--test",
         nargs="+",
-        help="Command to run after applying the change.",
+        help="Command to run after applying the changes.",
+    )
+
+    diff_parser = subparsers.add_parser(
+        "diff",
+        help="Preview a structured change file.",
+    )
+    diff_parser.add_argument(
+        "change_file",
+        help="JSON change file.",
     )
 
     subparsers.add_parser(
@@ -63,20 +69,38 @@ def main(argv: list[str] | None = None) -> int:
 
         return 0
 
+    if args.command == "diff":
+        root = detect_project().root
+
+        try:
+            change_set = load_changes(args.change_file)
+            diff = generate_diff(root, change_set.changes)
+        except PatchError as exc:
+            print(f"sap: patch rejected: {exc}", file=sys.stderr)
+            return 1
+
+        if diff:
+            print(diff, end="")
+        else:
+            print("No changes.")
+
+        return 0
+
     if args.command == "apply":
         root = detect_project().root
 
         try:
+            change_set = load_changes(args.change_file)
             apply_changes(
                 root,
-                [Change(args.file, args.content)],
+                change_set.changes,
                 test_command=args.test,
             )
         except PatchError as exc:
             print(f"sap: patch rejected: {exc}", file=sys.stderr)
             return 1
 
-        print(f"Applied safely: {args.file}")
+        print(f"Applied safely: {len(change_set.changes)} change(s)")
         return 0
 
     parser.error("unknown command")
