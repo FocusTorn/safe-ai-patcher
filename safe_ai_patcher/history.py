@@ -15,14 +15,16 @@ def record_transaction(
     paths: list[str],
     test_command: list[str] | None = None,
     error: str | None = None,
-) -> None:
+    transaction_id: str | None = None,
+    rollback_of: str | None = None,
+) -> str:
     """Append a transaction record to .sap/history.jsonl."""
     root = Path(root).resolve()
     history_dir = root / ".sap"
     history_dir.mkdir(parents=True, exist_ok=True)
 
     record = {
-        "id": uuid4().hex,
+        "id": transaction_id or uuid4().hex,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "status": status,
         "paths": paths,
@@ -32,11 +34,16 @@ def record_transaction(
     if error is not None:
         record["error"] = error
 
+    if rollback_of is not None:
+        record["rollback_of"] = rollback_of
+
     with (history_dir / "history.jsonl").open(
         "a",
         encoding="utf-8",
     ) as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+    return record["id"]
 
 
 def load_history(

@@ -177,6 +177,9 @@ def apply_changes(
                     + " (use allow_dirty=True to override)"
                 )
 
+    from .snapshots import create_snapshot
+
+    transaction_id = create_snapshot(root, changes)
     snapshots = _snapshot(root, changes)
 
     try:
@@ -211,4 +214,5 @@ def apply_changes(
             status="committed",
             paths=[change.path for change in changes],
             test_command=test_command,
+            transaction_id=transaction_id,
         )

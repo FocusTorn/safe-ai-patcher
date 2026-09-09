@@ -1,3 +1,4 @@
 #!/data/data/com.termux/files/usr/bin/bash
-cd "$HOME/safe-ai-patcher"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
 exec python -m safe_ai_patcher.cli "$@"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from .changes import generate_diff, load_changes
 from .history import load_history
@@ -51,6 +52,20 @@ def build_parser() -> argparse.ArgumentParser:
         "history",
         help="Show transaction history.",
     )
+
+    rollback_parser = subparsers.add_parser(
+        "rollback",
+        help="Restore a previous transaction snapshot.",
+    )
+    rollback_parser.add_argument(
+        "transaction_id",
+        help="Transaction ID to restore.",
+    )
+    rollback_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Restore even if files changed after the transaction.",
+    )
     history_parser.add_argument(
         "-n",
         "--limit",
@@ -90,6 +105,35 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("Git: not a repository")
 
+        return 0
+
+    if args.command == "rollback":
+        from .history import record_transaction
+        from .snapshots import restore_snapshot
+
+        root = detect_project().root
+
+        try:
+            paths = restore_snapshot(
+                root,
+                args.transaction_id,
+                force=args.force,
+            )
+        except PatchError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        record_transaction(
+            root,
+            status="rollback",
+            paths=paths,
+            rollback_of=args.transaction_id,
+        )
+
+        print(
+            f"Rolled back {args.transaction_id}: "
+            f"{len(paths)} file(s)"
+        )
         return 0
 
     if args.command == "history":
@@ -132,10 +176,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "diff":
-        root = detect_project().root
+        change_file = Path(args.change_file).resolve()
+        root = detect_project(change_file.parent).root
 
         try:
-            change_set = load_changes(args.change_file)
+            change_set = load_changes(change_file)
             diff = generate_diff(root, change_set.changes)
         except PatchError as exc:
             print(f"sap: patch rejected: {exc}", file=sys.stderr)
@@ -149,10 +194,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "apply":
-        root = detect_project().root
+        change_file = Path(args.change_file).resolve()
+        root = detect_project(change_file.parent).root
 
         try:
-            change_set = load_changes(args.change_file)
+            change_set = load_changes(change_file)
             apply_changes(
                 root,
                 change_set.changes,
