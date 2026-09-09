@@ -8,6 +8,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from .history import record_transaction
+
 
 class PatchError(Exception):
     """Raised when a patch cannot be safely applied."""
@@ -175,6 +177,20 @@ def apply_changes(
                     f"Test command failed with exit code {result.returncode}"
                 )
 
-    except Exception:
+    except Exception as exc:
         _rollback(snapshots)
+        record_transaction(
+            root,
+            status="rolled_back",
+            paths=[change.path for change in changes],
+            test_command=test_command,
+            error=str(exc),
+        )
         raise
+    else:
+        record_transaction(
+            root,
+            status="committed",
+            paths=[change.path for change in changes],
+            test_command=test_command,
+        )
