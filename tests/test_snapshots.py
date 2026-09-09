@@ -305,3 +305,35 @@ if __name__ == "__main__":
 
             self.assertIn("incomplete_transaction", removed)
             self.assertFalse(garbage_dir.exists())
+
+
+    def test_restore_rejects_invalid_transaction_id(self):
+        from safe_ai_patcher.snapshots import restore_snapshot
+        from safe_ai_patcher.core import PatchError
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(PatchError, "Invalid transaction ID format"):
+                restore_snapshot(tmp, "../../../etc/passwd")
+
+    def test_restore_rejects_malformed_metadata_paths_not_list(self):
+        from safe_ai_patcher.snapshots import restore_snapshot
+        from safe_ai_patcher.core import PatchError
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tid = "a" * 32
+            d = root / ".sap" / "transactions" / tid
+            d.mkdir(parents=True)
+            (d / "metadata.json").write_text('{"paths": "not-a-list"}')
+            with self.assertRaisesRegex(PatchError, "Malformed metadata"):
+                restore_snapshot(root, tid)
+
+    def test_restore_rejects_missing_payload(self):
+        from safe_ai_patcher.snapshots import restore_snapshot
+        from safe_ai_patcher.core import PatchError
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            tid = "b" * 32
+            d = root / ".sap" / "transactions" / tid
+            d.mkdir(parents=True)
+            (d / "metadata.json").write_text('{"paths": [{"path": "f.txt", "existed": true, "file": "0.bin"}]}')
+            with self.assertRaisesRegex(PatchError, "Missing snapshot payload"):
+                restore_snapshot(root, tid, force=True)

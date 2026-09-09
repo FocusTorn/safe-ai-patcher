@@ -73,6 +73,10 @@ def restore_snapshot(
     force: bool = False,
 ) -> list[str]:
     """Restore a persistent transaction snapshot safely."""
+    import re
+    if not re.match(r'^[\w\-]+$', transaction_id):
+        raise PatchError(f"Invalid transaction ID format: {transaction_id}")
+
     root = Path(root).resolve()
     directory = root / ".sap" / "transactions" / transaction_id
     metadata_path = directory / "metadata.json"
@@ -87,7 +91,13 @@ def restore_snapshot(
             f"Invalid transaction snapshot: {transaction_id}"
         ) from exc
 
-    entries = metadata.get("paths", [])
+    entries = metadata.get("paths")
+    if not isinstance(entries, list):
+        raise PatchError(f"Malformed metadata in snapshot: {transaction_id}")
+
+    for entry in entries:
+        if not isinstance(entry, dict) or "path" not in entry:
+            raise PatchError(f"Malformed entry in snapshot metadata: {transaction_id}")
 
     if not force:
         conflicts = [
@@ -107,11 +117,20 @@ def restore_snapshot(
     for entry in entries:
         target = _safe_path(root, entry["path"])
 
-        if entry["existed"]:
-            data = (directory / entry["file"]).read_bytes()
+        if entry.get("existed"):
+            payload_file = entry.get("file")
+            if not payload_file:
+                raise PatchError(f"Missing file reference in metadata for {entry['path']}")
+
+            payload_path = directory / payload_file
+            if not payload_path.is_file():
+                raise PatchError(f"Missing snapshot payload for {entry['path']}")
+
+            data = payload_path.read_bytes()
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-            target.chmod(entry["mode"])
+            if "mode" in entry:
+                target.chmod(entry["mode"])
         elif target.exists():
             if target.is_dir():
                 raise PatchError(f"Cannot remove directory: {entry['path']}")
